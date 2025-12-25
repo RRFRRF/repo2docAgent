@@ -1,0 +1,19 @@
+"""
+Repo2Doc Agent 提示词模块
+"""
+
+from prompts.agent_prompts import (
+    SYSTEM_PROMPT,
+    INITIAL_DOC_PROMPT,
+    UPDATE_DOC_PROMPT,
+    CHECK_COMPLETENESS_PROMPT,
+    TOOL_SELECTION_PROMPT,
+)
+
+__all__ = [
+    "SYSTEM_PROMPT",
+    "INITIAL_DOC_PROMPT",
+    "UPDATE_DOC_PROMPT",
+    "CHECK_COMPLETENESS_PROMPT",
+    "TOOL_SELECTION_PROMPT",
+]

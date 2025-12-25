@@ -1,0 +1,78 @@
+# Repo2Doc Agent 配置文件
+
+# Agent 配置
+agent:
+  # 最大探索迭代次数
+  max_iterations: 10
+  # 每次迭代最大工具调用数
+  max_tool_calls_per_iteration: 5
+
+# 文件筛选配置
+file_filter:
+  # 包含的文件扩展名
+  include_extensions:
+    - ".py"
+    - ".js"
+    - ".jsx"
+    - ".ts"
+    - ".tsx"
+    - ".java"
+    - ".go"
+    - ".rs"
+    - ".cpp"
+    - ".c"
+    - ".h"
+    - ".hpp"
+    - ".cs"
+    - ".rb"
+    - ".php"
+    - ".swift"
+    - ".kt"
+    - ".scala"
+    - ".vue"
+    - ".svelte"
+  
+  # 排除的目录模式（支持 glob）
+  exclude_patterns:
+    - "**/node_modules/**"
+    - "**/.git/**"
+    - "**/venv/**"
+    - "**/__pycache__/**"
+    - "**/dist/**"
+    - "**/build/**"
+    - "**/.venv/**"
+    - "**/vendor/**"
+    - "**/*.min.js"
+    - "**/*.min.css"
+    - "**/test/**"
+    - "**/tests/**"
+    - "**/*_test.py"
+    - "**/*_test.go"
+    - "**/*.test.ts"
+    - "**/*.spec.ts"
+  
+  # 最大文件大小（字节），超过此大小的文件将被跳过
+  max_file_size: 102400  # 100KB
+
+# LLM 配置
+llm:
+  # 模型名称
+  model: "qwen3-max"
+  # 温度参数
+  temperature: 0.3
+  # API 基础 URL（可选，用于兼容其他 API）
+  # base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+
+# 输出配置
+output:
+  # 输出目录（相对于仓库根目录）
+  output_dir: "./repo2doc-output"
+  # 输出文件名
+  filename: "requirements.md"
+  # 是否保存中间结果
+  save_intermediate: true
+
+# 日志配置
+logging:
+  level: "INFO"
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"

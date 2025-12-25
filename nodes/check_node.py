@@ -1,0 +1,148 @@
+"""
+完整性检查节点
+
+评估文档完整性，决定是否需要继续探索
+"""
+
+import logging
+import json
+from typing import Tuple
+
+from langchain_openai import ChatOpenAI
+from langchain_core.messages import SystemMessage, HumanMessage
+
+from state import AgentState
+from config_loader import Config
+from prompts.agent_prompts import CHECK_COMPLETENESS_PROMPT
+
+
+logger = logging.getLogger(__name__)
+
+
+def check_completeness_node(state: AgentState, config: Config) -> AgentState:
+    """
+    完整性检查节点
+    
+    评估当前文档的完整性：
+    1. 使用 LLM 分析文档质量
+    2. 识别缺失或不确定的部分
+    3. 决定是否继续探索
+    
+    Args:
+        state: 当前状态
+        config: 配置对象
+    
+    Returns:
+        更新后的状态
+    """
+    logger.info("检查文档完整性...")
+    
+    # 检查是否达到最大迭代次数
+    if state["iteration_count"] >= state["max_iterations"]:
+        logger.info(f"已达到最大迭代次数 {state['max_iterations']}，停止探索")
+        state["is_complete"] = True
+        state["status"] = "completed"
+        return state
+    
+    # 创建 LLM 客户端
+    llm = _create_llm(config)
+    
+    # 评估完整性
+    is_complete, confidence, missing_parts, suggested_tools = _evaluate_completeness(
+        llm,
+        state["current_document"],
+        state["high_level_info"],
+        state["iteration_count"],
+        config
+    )
+    
+    # 更新状态
+    state["is_complete"] = is_complete
+    state["confidence_score"] = confidence
+    state["missing_parts"] = missing_parts
+    
+    if is_complete:
+        state["status"] = "completed"
+        logger.info(f"文档已完整，置信度: {confidence:.2f}")
+    else:
+        state["status"] = "needs_exploration"
+        # 存储建议的工具调用供后续使用
+        state["current_tool_results"] = json.dumps(suggested_tools, ensure_ascii=False)
+        logger.info(f"文档不完整，需要继续探索。缺失: {missing_parts}")
+    
+    return state
+
+
+def _create_llm(config: Config) -> ChatOpenAI:
+    """创建 LLM 客户端"""
+    kwargs = {
+        "model": config.llm.model,
+        "temperature": config.llm.temperature,
+    }
+    
+    if config.llm.api_key:
+        kwargs["api_key"] = config.llm.api_key
+    
+    if config.llm.base_url:
+        kwargs["base_url"] = config.llm.base_url
+    
+    return ChatOpenAI(**kwargs)
+
+
+def _evaluate_completeness(
+    llm: ChatOpenAI,
+    document: str,
+    high_level_info: str,
+    iteration: int,
+    config: Config
+) -> Tuple[bool, float, list[str], list[dict]]:
+    """
+    评估文档完整性
+    
+    Returns:
+        (is_complete, confidence_score, missing_parts, suggested_tools)
+    """
+    messages = [
+        SystemMessage(content="你是一个需求文档质量评估专家。请严格按照 JSON 格式返回评估结果。"),
+        HumanMessage(content=CHECK_COMPLETENESS_PROMPT.format(
+            document=document,
+            high_level_info=high_level_info,
+            iteration=iteration,
+            max_iterations=config.agent.max_iterations
+        ))
+    ]
+    
+    response = llm.invoke(messages)
+    
+    # 解析响应
+    try:
+        # 尝试从响应中提取 JSON
+        content = response.content
+        
+        # 查找 JSON 块
+        import re
+        json_match = re.search(r'\{[\s\S]*\}', content)
+        
+        if json_match:
+            result = json.loads(json_match.group())
+        else:
+            # 如果没有找到 JSON，使用默认值
+            logger.warning("无法解析 LLM 响应中的 JSON，使用默认值")
+            result = {
+                "is_complete": iteration >= 3,  # 至少完成 3 次迭代
+                "confidence_score": 0.7,
+                "missing_parts": [],
+                "suggested_tools": []
+            }
+        
+        return (
+            result.get("is_complete", False),
+            result.get("confidence_score", 0.5),
+            result.get("missing_parts", []),
+            result.get("suggested_tools", [])
+        )
+    
+    except json.JSONDecodeError as e:
+        logger.error(f"解析评估结果失败: {e}")
+        # 返回保守估计
+        return (False, 0.5, ["无法评估"], [])
