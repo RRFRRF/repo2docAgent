@@ -13,6 +13,7 @@ agent:
 file_filter:
   # 包含的文件扩展名
   include_extensions:
+    - ".md"
     - ".py"
     - ".js"
     - ".jsx"
